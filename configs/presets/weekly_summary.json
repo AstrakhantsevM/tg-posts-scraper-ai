@@ -1,0 +1,20 @@
+{
+  "source": "russian_regions.json",
+  "channels": null,
+
+  "parse_until": {
+    "year": 2026,
+    "month": 4,
+    "day": 20
+  },
+
+  "prompt_file": "birth_support_check.txt",
+  "system_instruction_file": "analyst_role.txt",
+
+  "preferred_models": [
+    {"provider": "mistral", "model": "mistral-small-latest"},
+    {"provider": "groq",    "model": "llama-3.1-8b-instant"}
+  ],
+  "temperature": 0.1,
+  "output_label": "weekly_summary"
+}
