@@ -4,12 +4,14 @@ _04_01_report/_3_docx_renderer.py
 Рендеринг ReportDocument в профессиональный Word-документ (.docx)
 в стиле «Мониторинг СМИ».
 
-UX/UI-версия:
+Исправленная UX/UI-версия:
 - шапка во всю ширину страницы;
 - крупный читаемый заголовок;
 - горизонтальные счётчики-виджеты справа;
 - карточки регионов во всю ширину;
-- увеличенный шрифт в региональной информации;
+- каждая мера поддержки выводится отдельной мини-карточкой;
+- title/type/name корректно выводятся как суть меры;
+- строковые null/None/не указано не попадают в документ;
 - настоящий футер внизу каждой страницы;
 - номер страницы в футере;
 - подпись «Отчёт сформирован автоматически» на каждой странице.
@@ -44,12 +46,17 @@ COLOR_GREEN_BG = "EAF6E6"
 COLOR_RED = RGBColor(0xC0, 0x2A, 0x2A)
 COLOR_RED_BG = "FBEAEA"
 
+COLOR_PURPLE = RGBColor(0x6D, 0x4A, 0xA8)
+COLOR_PURPLE_BG = "F1ECFA"
+
 COLOR_GREY = RGBColor(0x68, 0x68, 0x68)
 COLOR_GREY_DARK = RGBColor(0x45, 0x45, 0x45)
 COLOR_GREY_BG = "F4F6F8"
 
 COLOR_LINE = "D7DEE8"
+COLOR_CARD_BG = "FAFBFD"
 COLOR_WHITE = "FFFFFF"
+
 
 # ---------------------------------------------------------------------------
 # Размеры шрифтов
@@ -140,7 +147,9 @@ def _p_border_bottom(p, color_hex: str = "C0C0C0", size: int = 4) -> None:
 
 
 def _set_line_spacing(p, line: int = 240) -> None:
-    """Одинарный межстрочный интервал: 240 = 1.0×."""
+    """
+    Одинарный межстрочный интервал: 240 = 1.0×.
+    """
     p_pr = p._p.get_or_add_pPr()
 
     old_spacing = p_pr.find(qn("w:spacing"))
@@ -243,7 +252,9 @@ def _add_page_number(paragraph) -> None:
 
 
 def _override_list_bullet_style(doc: Document) -> None:
-    """Убираем лишние интервалы в List Bullet."""
+    """
+    Убираем лишние интервалы в List Bullet.
+    """
     try:
         style = doc.styles["List Bullet"]
         style.font.name = "Arial"
@@ -269,10 +280,9 @@ class DocxReportRenderer:
     PAGE_HEIGHT = Mm(297)
     MARGIN = Mm(14)
 
-    # Для python-docx.
     CONTENT_W = PAGE_WIDTH - 2 * MARGIN
 
-    # Для XML w:dxa. 1 мм ≈ 56.7 twips.
+    # 1 мм ≈ 56.7 twips.
     CONTENT_W_DXA = int((210 - 14 * 2) * 56.7)
 
     def render(self, document: ReportDocument) -> Document:
@@ -308,7 +318,7 @@ class DocxReportRenderer:
         if found_regions:
             self._render_section_title(
                 doc,
-                "ОТВЕТЫ С ПОТЕНЦИАЛЬНЫМИ УПОМИНАНИЯМИ",
+                "ВЫЯВЛЕННЫЕ МЕРЫ СОЦИАЛЬНОЙ ПОДДЕРЖКИ",
             )
 
             for idx, region in enumerate(found_regions, start=1):
@@ -344,7 +354,7 @@ class DocxReportRenderer:
         normal.paragraph_format.space_after = Pt(0)
 
     # ------------------------------------------------------------------
-    # Футер на каждой странице
+    # Футер
     # ------------------------------------------------------------------
 
     def _render_page_footer(self, doc: Document, date_str: str, time_str: str) -> None:
@@ -430,16 +440,12 @@ class DocxReportRenderer:
         _set_cell_bg(cell_l, COLOR_BLUE_SOFT)
         _set_cell_bg(cell_r, COLOR_BLUE_SOFT)
 
-        #_set_cell_borders(cell_l, color="8FB3DF", size=8)
-        #_set_cell_borders(cell_r, color="8FB3DF", size=8)
-
         _cell_margins(cell_l, top=180, bottom=160, left=220, right=160)
         _cell_margins(cell_r, top=130, bottom=120, left=120, right=180)
 
         cell_l.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
         cell_r.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
 
-        # Левая часть
         p_title = cell_l.paragraphs[0]
         p_title.paragraph_format.space_before = Pt(0)
         p_title.paragraph_format.space_after = Pt(4)
@@ -466,7 +472,6 @@ class DocxReportRenderer:
         rm.font.size = Pt(F_META)
         rm.font.color.rgb = COLOR_GREY
 
-        # Правая часть
         _clear_cell(cell_r)
 
         stats = [
@@ -535,7 +540,7 @@ class DocxReportRenderer:
         run.font.color.rgb = COLOR_NAVY
 
     # ------------------------------------------------------------------
-    # Сообщение, если вообще ничего не найдено
+    # Сообщение, если ничего не найдено
     # ------------------------------------------------------------------
 
     def _render_no_mentions_message(self, doc: Document) -> None:
@@ -589,21 +594,7 @@ class DocxReportRenderer:
         _set_cell_borders(cell, color=COLOR_LINE, size=5)
         _cell_margins(cell, top=120, bottom=115, left=150, right=150)
 
-        p_name = cell.paragraphs[0]
-        p_name.paragraph_format.space_before = Pt(0)
-        p_name.paragraph_format.space_after = Pt(2)
-        _set_line_spacing(p_name)
-
-        rn = p_name.add_run(f"{idx:02d}. ")
-        rn.bold = True
-        rn.font.size = Pt(F_REGION)
-        rn.font.color.rgb = COLOR_BLUE
-
-        rr = p_name.add_run(region.region)
-        rr.bold = True
-        rr.font.size = Pt(F_REGION)
-        rr.font.color.rgb = COLOR_NAVY
-
+        # вместо p_name / p_meta
         meta_parts = []
 
         if region.channel:
@@ -615,16 +606,40 @@ class DocxReportRenderer:
         if region.data_date:
             meta_parts.append(region.data_date)
 
-        if meta_parts:
-            p_meta = cell.add_paragraph()
-            p_meta.paragraph_format.space_before = Pt(0)
-            p_meta.paragraph_format.space_after = Pt(6)
-            _set_line_spacing(p_meta)
+            # Выводим заголовок и мету в первый абзац карточки
+            p_head = cell.paragraphs[0]
+            p_head.paragraph_format.space_before = Pt(0)
+            p_head.paragraph_format.space_after = Pt(12)  # Небольшой отступ перед карточками мер
+            _set_line_spacing(p_head)
 
-            rm = p_meta.add_run(" · ".join(meta_parts))
-            rm.italic = True
-            rm.font.size = Pt(F_META)
-            rm.font.color.rgb = COLOR_GREY
+            # 1. Номер
+            rn = p_head.add_run(f"{idx:02d}. ")
+            rn.bold = True
+            rn.font.size = Pt(F_REGION)
+            rn.font.color.rgb = COLOR_BLUE
+
+            # 2. Регион
+            rr = p_head.add_run(region.region)
+            rr.bold = True
+            rr.font.size = Pt(F_REGION)
+            rr.font.color.rgb = COLOR_NAVY
+
+            # 3. Метаинформация сразу за названием региона
+            if meta_parts:
+                # Разделитель с отступами
+                r_sep = p_head.add_run("   ·   ")
+                r_sep.font.size = Pt(F_META)
+                r_sep.font.color.rgb = COLOR_GREY
+
+                rm = p_head.add_run(" · ".join(meta_parts))
+                rm.italic = True
+                rm.font.size = Pt(F_META)
+                rm.font.color.rgb = COLOR_GREY
+
+        spacer = cell.add_paragraph()
+        spacer.paragraph_format.space_after = Pt(0)
+        # Задаем высоту самого шрифта в пустой строке
+        spacer.add_run().font.size = Pt(8)
 
         self._render_measures_into_cell(cell, region)
 
@@ -638,7 +653,9 @@ class DocxReportRenderer:
                 if isinstance(measure, dict):
                     self._render_measure_dict_into_cell(cell, measure)
                 else:
-                    self._render_bullet_into_cell(cell, str(measure))
+                    text = self._clean_measure_value(measure)
+                    if text:
+                        self._render_bullet_into_cell(cell, text)
 
             return
 
@@ -650,58 +667,129 @@ class DocxReportRenderer:
                     self._render_bullet_into_cell(cell, line)
 
     def _render_measure_dict_into_cell(self, cell, m: dict) -> None:
-        name = (
-            m.get("name")
-            or m.get("title")
+        """
+        Рендерит одну меру как отдельную мини-карточку.
+        """
+        title = self._clean_measure_value(
+            m.get("title")
+            or m.get("name")
+            or m.get("type")
             or m.get("description")
-            or ""
         )
 
-        if name:
-            p = cell.add_paragraph()
-            p.paragraph_format.left_indent = Twips(260)
-            p.paragraph_format.first_line_indent = Twips(-160)
-            p.paragraph_format.space_before = Pt(2)
-            p.paragraph_format.space_after = Pt(3)
+        form = self._clean_measure_value(m.get("form"))
+        amount = self._clean_measure_value(m.get("amount"))
+        conditions = self._clean_measure_value(m.get("conditions"))
+        notes = self._clean_measure_value(m.get("notes"))
+        details = self._clean_measure_value(m.get("details"))
+
+        if not any([title, form, amount, conditions, notes, details]):
+            return
+
+        if not title:
+            title = "Мера поддержки без уточнённого названия"
+
+        card = cell.add_table(rows=1, cols=1)
+        card.alignment = WD_TABLE_ALIGNMENT.CENTER
+        card.style = "Table Grid"
+
+        _set_table_fixed_layout(card)
+        _remove_table_borders(card)
+
+        card_w = int(self.CONTENT_W_DXA * 0.94)
+        _set_tbl_width(card, card_w)
+
+        card_cell = card.rows[0].cells[0]
+        _cell_width(card_cell, card_w)
+        _set_cell_bg(card_cell, COLOR_CARD_BG)
+        _set_cell_borders(card_cell, color="E1E6EF", size=5)
+        _cell_margins(card_cell, top=85, bottom=80, left=120, right=120)
+
+        p_title = card_cell.paragraphs[0]
+        p_title.paragraph_format.space_before = Pt(0)
+        p_title.paragraph_format.space_after = Pt(3)
+        _set_line_spacing(p_title)
+
+        bullet = p_title.add_run("● ")
+        bullet.bold = True
+        bullet.font.size = Pt(F_NORMAL)
+        bullet.font.color.rgb = COLOR_BLUE
+
+        run_title = p_title.add_run(title)
+        run_title.bold = True
+        run_title.font.size = Pt(F_NORMAL + 0.5)
+        run_title.font.color.rgb = COLOR_NAVY
+
+        badges = []
+
+        if form:
+            badges.append(("Форма", form, COLOR_PURPLE, COLOR_PURPLE_BG))
+
+        if amount:
+            badges.append(("Размер", amount, COLOR_GREEN, COLOR_GREEN_BG))
+
+        if badges:
+            badges_tbl = card_cell.add_table(rows=1, cols=len(badges))
+            badges_tbl.alignment = WD_TABLE_ALIGNMENT.LEFT
+
+            _set_table_fixed_layout(badges_tbl)
+            _remove_table_borders(badges_tbl)
+
+            badge_w = int(card_w / max(len(badges), 1)) - 80
+            _set_tbl_width(badges_tbl, badge_w * len(badges))
+
+            for i, (label, value, color, bg) in enumerate(badges):
+                bcell = badges_tbl.rows[0].cells[i]
+
+                _cell_width(bcell, badge_w)
+                _set_cell_bg(bcell, bg)
+                _set_cell_borders(bcell, color="FFFFFF", size=4)
+                _cell_margins(bcell, top=45, bottom=40, left=70, right=70)
+
+                p = bcell.paragraphs[0]
+                p.paragraph_format.space_before = Pt(0)
+                p.paragraph_format.space_after = Pt(0)
+                _set_line_spacing(p)
+
+                rl = p.add_run(f"{label}: ")
+                rl.bold = True
+                rl.font.size = Pt(F_SMALL)
+                rl.font.color.rgb = color
+
+                rv = p.add_run(value)
+                rv.font.size = Pt(F_SMALL)
+                rv.font.color.rgb = COLOR_GREY_DARK
+
+        detail_rows = []
+
+        if conditions:
+            detail_rows.append(("Условия", conditions))
+
+        if notes:
+            detail_rows.append(("Нюансы", notes))
+
+        if details:
+            detail_rows.append(("Детали", details))
+
+        for label, value in detail_rows:
+            p = card_cell.add_paragraph()
+            p.paragraph_format.space_before = Pt(3)
+            p.paragraph_format.space_after = Pt(0)
+            p.paragraph_format.left_indent = Twips(0)
             _set_line_spacing(p)
 
-            bullet = p.add_run("• ")
-            bullet.bold = True
-            bullet.font.size = Pt(F_NORMAL)
-            bullet.font.color.rgb = COLOR_BLUE
-
-            run = p.add_run(str(name))
-            run.bold = True
-            run.font.size = Pt(F_NORMAL)
-            run.font.color.rgb = COLOR_GREY_DARK
-
-        label_map = {
-            "amount": "Размер",
-            "conditions": "Условия",
-            "notes": "Нюансы",
-            "details": "Детали",
-        }
-
-        for key in ("amount", "conditions", "notes", "details"):
-            val = m.get(key)
-
-            if not val:
-                continue
-
-            p2 = cell.add_paragraph()
-            p2.paragraph_format.left_indent = Twips(520)
-            p2.paragraph_format.space_before = Pt(1)
-            p2.paragraph_format.space_after = Pt(1)
-            _set_line_spacing(p2)
-
-            rl = p2.add_run(f"{label_map[key]}: ")
+            rl = p.add_run(f"{label}: ")
             rl.bold = True
             rl.font.size = Pt(F_NORMAL)
             rl.font.color.rgb = COLOR_GREY_DARK
 
-            rv = p2.add_run(str(val))
+            rv = p.add_run(value)
             rv.font.size = Pt(F_NORMAL)
             rv.font.color.rgb = COLOR_GREY_DARK
+
+        #spacer = cell.add_paragraph()
+        #spacer.paragraph_format.space_before = Pt(0)
+        #spacer.paragraph_format.space_after = Pt(5)
 
     def _render_bullet_into_cell(self, cell, text: str) -> None:
         p = cell.add_paragraph()
@@ -782,3 +870,35 @@ class DocxReportRenderer:
             rv = p_e.add_run(", ".join(r.region for r in error_regions))
             rv.font.size = Pt(F_META)
             rv.font.color.rgb = COLOR_RED
+
+    # ------------------------------------------------------------------
+    # Очистка значений
+    # ------------------------------------------------------------------
+
+    def _clean_measure_value(self, value) -> str | None:
+        if value is None:
+            return None
+
+        text = str(value).strip()
+
+        if not text:
+            return None
+
+        text = re.sub(r"\s+", " ", text)
+
+        if text.lower() in {
+            "null",
+            "none",
+            "nil",
+            "нет",
+            "не указано",
+            "не указаны",
+            "не указан",
+            "n/a",
+            "na",
+            "—",
+            "-",
+        }:
+            return None
+
+        return text

@@ -26,5 +26,5 @@ def main(preset_name: str) -> None:
     logger.info("=== Готово | пресет: %s ===", preset_name)
 
 if __name__ == "__main__":
-    preset = "test"
+    preset = "weekly_summary"
     main(preset_name=preset)
