@@ -21,8 +21,8 @@ from telethon.errors import (
     UsernameNotOccupiedError,
 )
 
-from scraper.models import Post, ScrapeResult
-from scraper.utils import ensure_utc
+from _02_01_scraper.models import Post, ScrapeResult
+from _02_01_scraper.utils import ensure_utc
 
 logger = logging.getLogger(__name__)
 

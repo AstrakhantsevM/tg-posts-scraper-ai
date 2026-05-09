@@ -4,7 +4,7 @@ scripts/scrape.py — этап парсинга каналов.
 Единственная публичная функция: ``run(ctx)``.
 
 Результат сохраняется в:
-    data/<preset_name>/<YYYY-MM-DD>/raw_posts.json
+    data/<output_label>/<YYYY-MM-DD>/<region>/raw_posts.json
 
 Структура файла::
 
@@ -30,11 +30,11 @@ import logging
 import re
 from datetime import datetime, timezone
 
-from configs.settings import settings
-from core.run_context import RunContext
-from scraper.client import TelegramScraper
-from scraper.models import Post, ScrapeResult
-from scraper.utils import ensure_utc
+from _01_02_configs.settings import settings
+from _01_01_core.run_context import RunContext
+from _02_01_scraper.client import TelegramScraper
+from _02_01_scraper.models import Post, ScrapeResult
+from _02_01_scraper.utils import ensure_utc
 
 logger = logging.getLogger(__name__)
 

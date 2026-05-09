@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from configs.presets.preset_model import Preset
+from _01_02_configs.presets.preset_model import Preset
 
 _PRESETS_DIR = Path(__file__).parent
 

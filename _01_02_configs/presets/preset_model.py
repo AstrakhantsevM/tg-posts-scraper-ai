@@ -48,18 +48,9 @@ class ParseUntilDate(BaseModel):
         """Конвертировать в стандартный ``datetime.date`` для сравнений."""
         return date(self.year, self.month, self.day)
 
-
-class ModelEntry(BaseModel):
-    """
-    Одна запись в списке ротации AI-моделей.
-
-    :param provider: Провайдер — ``"mistral"``, ``"groq"``, ``"openrouter"``.
-    :param model:    Идентификатор модели у провайдера.
-    """
-
+class PreferredModel(BaseModel):
     provider: str
     model: str
-
 
 class Preset(BaseModel):
     """
@@ -90,10 +81,11 @@ class Preset(BaseModel):
     prompt_file: str
     system_instruction_file: str
 
-    preferred_models: list[ModelEntry] = Field(min_length=1)
+    preferred_models: list[PreferredModel] = Field(min_length=1)
     temperature: float = Field(default=0.1, ge=0.0, le=1.0)
 
     output_label: str = ""
+    token_limit: int = Field(default=3_000, gt=0)
     limit_per_channel: int = Field(default=999, gt=0)
 
     @model_validator(mode="after")

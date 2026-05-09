@@ -10,6 +10,7 @@
 
   "prompt_file": "birth_support_check.txt",
   "system_instruction_file": "analyst_role.txt",
+  "token_limit": 3010,
 
   "preferred_models": [
     {"provider": "mistral", "model": "mistral-small-latest"},

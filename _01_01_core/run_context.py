@@ -12,12 +12,16 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from configs.presets.preset_model import Preset
-from configs.settings import settings
+from _01_02_configs.presets.preset_model import Preset
+from _01_02_configs.settings import settings
 
 logger = logging.getLogger(__name__)
 
-_SOURCES_DIR = settings.BASE_DIR / "data/sources"
+_DATA_DIR = settings.BASE_DIR / "_01_03_data"
+_SOURCES_DIR = _DATA_DIR / "sources"
+
+_PROMPTS_DIR = settings.BASE_DIR / "_03_02_llm_prompts"
+_SYSTEM_INSTRUCTIONS_DIR = settings.BASE_DIR / "_03_03_llm_system_instructions"
 
 
 @dataclass
@@ -29,12 +33,14 @@ class RunContext:
         preset:          Конфигурация пресета.
         region_channels: Словарь вида {"Регион": ["@channel1", "@channel2"]}.
         data_dir:        Папка для сохранения результатов.
-                         Формат: ``data/<preset_name>/<YYYY-MM-DD>/``
+                         Формат: ``data/<output_label>/<YYYY-MM-DD>/``
     """
 
     preset: Preset
     region_channels: dict[str, list[str]]   # ← было channels: list[str]
     data_dir: Path
+    prompt: str
+    system_instruction: str
 
     @classmethod
     def from_preset(cls, preset: Preset) -> RunContext:
@@ -52,12 +58,16 @@ class RunContext:
         total_channels = sum(len(v) for v in region_channels.values())
 
         data_dir = (
-            settings.BASE_DIR
-            / "data"
+            _DATA_DIR
             / (preset.output_label or "default")
             / str(stop_date)
         )
         data_dir.mkdir(parents=True, exist_ok=True)
+
+        prompt = cls._load_prompt_file(preset.prompt_file)
+        system_instruction = cls._load_system_instruction_file(
+            preset.system_instruction_file
+        )
 
         cls._ensure_session()
 
@@ -65,7 +75,13 @@ class RunContext:
             "RunContext готов | регионов: %d | каналов: %d | стоп-дата: %s | папка: %s",
             len(region_channels), total_channels, stop_date, data_dir,
         )
-        return cls(preset=preset, region_channels=region_channels, data_dir=data_dir)
+        return cls(
+            preset=preset,
+            region_channels=region_channels,
+            data_dir=data_dir,
+            prompt=prompt,
+            system_instruction=system_instruction,
+        )
 
     @classmethod
     def _resolve_region_channels(cls, preset: Preset) -> dict[str, list[str]]:
@@ -130,3 +146,45 @@ class RunContext:
                 "при первом запуске Telethon запросит номер телефона.",
                 session_path,
             )
+
+    @classmethod
+    def _load_prompt_file(cls, filename: str) -> str:
+        """
+        Прочитать пользовательский prompt из папки prompts.
+        """
+
+        if not filename:
+            raise ValueError("В пресете не задан prompt_file.")
+
+        path = _PROMPTS_DIR / filename
+
+        if not path.exists():
+            raise FileNotFoundError(f"Prompt-файл не найден: {path}")
+
+        content = path.read_text(encoding="utf-8").strip()
+
+        if not content:
+            raise ValueError(f"Prompt-файл пустой: {path}")
+
+        return content
+
+    @classmethod
+    def _load_system_instruction_file(cls, filename: str) -> str:
+        """
+        Прочитать system instruction из папки system_instructions.
+        """
+
+        if not filename:
+            raise ValueError("В пресете не задан system_instruction_file.")
+
+        path = _SYSTEM_INSTRUCTIONS_DIR / filename
+
+        if not path.exists():
+            raise FileNotFoundError(f"System instruction файл не найден: {path}")
+
+        content = path.read_text(encoding="utf-8").strip()
+
+        if not content:
+            raise ValueError(f"System instruction файл пустой: {path}")
+
+        return content
