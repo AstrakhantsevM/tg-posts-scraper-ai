@@ -52,6 +52,9 @@ class PreferredModel(BaseModel):
     provider: str
     model: str
 
+class PromptStageConfig(BaseModel):
+    template_file: str
+
 class Preset(BaseModel):
     """
     Полная конфигурация одного сценария запуска.
@@ -80,9 +83,12 @@ class Preset(BaseModel):
 
     prompt_file: str
     system_instruction_file: str
+    prompt_stages: dict[str, PromptStageConfig]
 
     preferred_models: list[PreferredModel] = Field(min_length=1)
     temperature: float = Field(default=0.1, ge=0.0, le=1.0)
+    require_json: bool = Field(default=True)
+    concurrency: int = Field(default=1)
 
     output_label: str = ""
     token_limit: int = Field(default=3_000, gt=0)

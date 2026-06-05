@@ -41,7 +41,9 @@ class GroqAgent:
         """
         self.model = model
         self.timeout = timeout
-        self._client = Groq(api_key=api_key)
+        self._client = Groq(
+            api_key=api_key
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -121,7 +123,7 @@ class GroqAgent:
             messages.append({"role": "system", "content": system_instruction})
 
         formatted_data = self.DATA_SEPARATOR.join(data)
-        user_content = f"{prompt}\n\nПОСТЫ ДЛЯ АНАЛИЗА:\n{formatted_data}"
+        user_content = f"{prompt}\n\nДЛЯ АНАЛИЗА:\n{formatted_data}"
         messages.append({"role": "user", "content": user_content})
 
         return messages

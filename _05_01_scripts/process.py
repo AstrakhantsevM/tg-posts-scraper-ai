@@ -63,6 +63,8 @@ from _03_04_llm_inference._2_batcher import LLMDataBatcher
 from _03_04_llm_inference._3_models import LLMInferenceResult, LLMProcessResult
 from _03_04_llm_inference.inference import LLMInferencePool
 
+from _03_04_llm_inference._7_prompt_renderer import render_stage_prompt
+
 logger = logging.getLogger(__name__)
 
 def run(ctx: RunContext, target_date=None) -> None:
@@ -170,10 +172,10 @@ async def _process_single_batch(
     на основной промпт из ctx.prompt и системную инструкцию из ctx.system_instruction.
     """
 
-    prompt = _build_contextual_prompt(
-        base_prompt=ctx.prompt,
+    prompt = render_stage_prompt(
+        ctx=ctx,
+        stage="single_batch",
         region=region,
-        mode="single_batch",
     )
 
     result = await inference_pool.infer(
@@ -181,7 +183,8 @@ async def _process_single_batch(
         prompt=prompt,
         system_instruction=ctx.system_instruction,
         batch_index=0,
-        role="single_batch_processing",
+        role="single_batch",
+
     )
 
     errors = []
@@ -216,15 +219,15 @@ async def _process_multiple_batches(
         4. Финальный батч отправляется на итоговое summary.
     """
 
-    concurrency = getattr(ctx.preset, "concurrency", 3)
+    concurrency = getattr(ctx.preset, "concurrency", 2)
     semaphore = asyncio.Semaphore(concurrency)
 
     async def _process_one_batch(index: int, batch: Any) -> LLMInferenceResult:
         async with semaphore:
-            prompt = _build_contextual_prompt(
-                base_prompt=ctx.prompt,
+            prompt = render_stage_prompt(
+                ctx=ctx,
+                stage="batch_summary",
                 region=region,
-                mode="batch_summary",
                 batch_index=index,
                 batches_total=len(batches),
             )
@@ -248,6 +251,7 @@ async def _process_multiple_batches(
         result.response
         for result in batch_results
         if result.success and result.response
+        and json.loads(result.response).get("found") is True
     ]
 
     errors = [
@@ -295,10 +299,10 @@ async def _make_final_summary(
     Сделать итоговое summary по результатам обработки нескольких батчей.
     """
 
-    prompt = _build_contextual_prompt(
-        base_prompt=ctx.prompt,
+    prompt = render_stage_prompt(
+        ctx=ctx,
+        stage="final_summary",
         region=region,
-        mode="final_summary",
         batches_total=len(summaries),
     )
 
@@ -308,66 +312,6 @@ async def _make_final_summary(
         system_instruction=ctx.system_instruction,
         batch_index=-1,
         role="final_summary",
-    )
-
-def _build_contextual_prompt(
-    *,
-    base_prompt: str,
-    region: str,
-    mode: str,
-    batch_index: int | None = None,
-    batches_total: int | None = None,
-) -> str:
-    """
-    Добавить к основному prompt технический контекст выполнения.
-
-    Сам основной промпт берётся из ctx.prompt.
-    Этот helper не подменяет пользовательскую инструкцию, а только уточняет режим:
-        - single_batch;
-        - batch_summary;
-        - final_summary.
-    """
-
-    context_lines = [
-        f"Регион: {region}",
-        f"Режим обработки: {mode}",
-    ]
-
-    if batch_index is not None:
-        context_lines.append(f"Индекс батча: {batch_index}")
-
-    if batches_total is not None:
-        context_lines.append(f"Всего батчей: {batches_total}")
-
-    if mode == "single_batch":
-        task_instruction = (
-            "Проанализируй переданные данные как единый набор. "
-            "Верни итоговый результат строго согласно основному промпту."
-        )
-    elif mode == "batch_summary":
-        task_instruction = (
-            "Это только часть данных по региону. "
-            "Сделай промежуточное summary по этому батчу. "
-            "Сохрани факты, темы, события, сигналы и выводы, которые понадобятся "
-            "для последующего финального обобщения."
-        )
-    elif mode == "final_summary":
-        task_instruction = (
-            "Ниже переданы промежуточные summary по нескольким батчам. "
-            "Собери единый финальный результат по региону. "
-            "Убери дубли, объедини повторяющиеся темы и верни результат "
-            "строго согласно основному промпту."
-        )
-    else:
-        task_instruction = "Выполни обработку согласно основному промпту."
-
-    return (
-        f"{base_prompt.strip()}\n\n"
-        f"---\n"
-        f"КОНТЕКСТ ЗАПУСКА:\n"
-        f"{chr(10).join(context_lines)}\n\n"
-        f"ТЕХНИЧЕСКАЯ ИНСТРУКЦИЯ:\n"
-        f"{task_instruction}"
     )
 
 def _item_to_text(item: Any) -> str:

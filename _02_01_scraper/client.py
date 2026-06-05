@@ -17,6 +17,9 @@ from telethon import TelegramClient
 from telethon.errors import (
     ChannelPrivateError,
     FloodWaitError,
+    SessionPasswordNeededError,
+    PhoneCodeInvalidError,
+    PhoneCodeExpiredError,
     UsernameInvalidError,
     UsernameNotOccupiedError,
 )
@@ -45,21 +48,41 @@ class TelegramScraper:
     """
 
     def __init__(self, session_path: str, api_id: int, api_hash: str) -> None:
-        """
-        :param session_path: Путь к файлу сессии Telethon (без расширения .session).
-        :param api_id:       Telegram API ID из my.telegram.org.
-        :param api_hash:     Telegram API Hash из my.telegram.org.
-        """
         self._client = TelegramClient(session_path, api_id, api_hash)
 
-    # ------------------------------------------------------------------
-    # Context manager
-    # ------------------------------------------------------------------
+    async def __aenter__(self):
+        await self._client.connect()
 
-    async def __aenter__(self) -> "TelegramScraper":
-        """Открыть соединение с Telegram при входе в блок ``async with``."""
-        await self._client.start()
-        logger.info("Соединение с Telegram установлено.")
+        if not await self._client.is_user_authorized():
+            phone = input("Введите номер телефона: ").strip()
+
+            try:
+                sent = await self._client.send_code_request(phone)
+
+                print("Код отправлен. Проверь SMS или активные сессии Telegram.")
+
+                code = input("Введите код из Telegram/SMS: ").strip()
+
+                try:
+                    await self._client.sign_in(
+                        phone=phone,
+                        code=code,
+                        phone_code_hash=sent.phone_code_hash,
+                    )
+
+                except SessionPasswordNeededError:
+                    password = input("Введите пароль 2FA: ").strip()
+                    await self._client.sign_in(password=password)
+
+            except PhoneCodeInvalidError:
+                raise RuntimeError("Неверный код авторизации.")
+
+            except PhoneCodeExpiredError:
+                raise RuntimeError("Код авторизации истек. Запросите новый код позже.")
+
+            except FloodWaitError as e:
+                raise RuntimeError(f"Telegram ограничил запросы. Нужно подождать {e.seconds} сек.")
+
         return self
 
     async def __aexit__(self, *_) -> None:

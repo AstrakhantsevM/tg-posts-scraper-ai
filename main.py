@@ -14,17 +14,17 @@ def main(preset_name: str) -> None:
     ctx = RunContext.from_preset(preset)
 
     # Парсим посты из каналов
-    #scrape.run(ctx)
+    scrape.run(ctx)
 
     # Анализруем посты с ИИ. YYYY-MM-DD или
     # target_date=None -> свежайшая дата
     #process.run(ctx, target_date=None)
 
     # Формируем отчет. Аналогичная логика
-    report.run(ctx, target_date=None)
+    #report.run(ctx, target_date=None)
 
     logger.info("=== Готово | пресет: %s ===", preset_name)
 
 if __name__ == "__main__":
-    preset = "weekly_summary"
+    preset = "vape_searcher"
     main(preset_name=preset)

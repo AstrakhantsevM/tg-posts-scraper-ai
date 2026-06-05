@@ -4,16 +4,36 @@
 
   "parse_until": {
     "year": 2026,
-    "month": 4,
-    "day": 20
+    "month": 5,
+    "day": 26
   },
 
   "prompt_file": "birth_support_check.txt",
   "system_instruction_file": "analyst_role.txt",
-  "token_limit": 3010,
+
+  "prompt_stages": {
+    "single_batch": {
+      "template_file": "single_batch.txt"
+    },
+    "batch_summary": {
+      "template_file": "batch_summary.txt"
+    },
+    "final_summary": {
+      "template_file": "final_summary_merge_measures.txt"
+    }
+  },
+
+  "token_limit": 2510,
+  "require_json": true,
+  "concurrency": 2,
 
   "preferred_models": [
+    {"provider": "groq2",    "model": "llama-3.1-8b-instant"},
     {"provider": "mistral", "model": "mistral-small-latest"},
+    {"provider": "mistral2", "model": "mistral-small-latest"},
+    {"provider": "mistral3", "model": "mistral-small-latest"},
+    {"provider": "mistral4", "model": "mistral-small-latest"},
+    {"provider": "mistral5", "model": "mistral-small-latest"},
     {"provider": "groq",    "model": "llama-3.1-8b-instant"}
   ],
   "temperature": 0.1,

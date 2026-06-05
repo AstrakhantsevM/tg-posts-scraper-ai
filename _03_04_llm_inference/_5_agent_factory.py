@@ -89,9 +89,86 @@ class LLMAgentFactory:
                 agent=agent,
             )
 
+        if provider == "mistral2":
+            agent = MistralAgent(
+                api_key=settings.api.mistral_key2.get_secret_value(),
+                model=model,
+                temperature=temperature,
+            )
+
+            return AgentSlot(
+                provider=provider,
+                model=model,
+                agent=agent,
+            )
+
+        if provider == "mistral3":
+            agent = MistralAgent(
+                api_key=settings.api.mistral_key3.get_secret_value(),
+                model=model,
+                temperature=temperature,
+            )
+
+            return AgentSlot(
+                provider=provider,
+                model=model,
+                agent=agent,
+            )
+
+        if provider == "mistral4":
+            agent = MistralAgent(
+                api_key=settings.api.mistral_key4.get_secret_value(),
+                model=model,
+                temperature=temperature,
+            )
+
+            return AgentSlot(
+                provider=provider,
+                model=model,
+                agent=agent,
+            )
+
+        if provider == "mistral5":
+            agent = MistralAgent(
+                api_key=settings.api.mistral_key5.get_secret_value(),
+                model=model,
+                temperature=temperature,
+            )
+
+            return AgentSlot(
+                provider=provider,
+                model=model,
+                agent=agent,
+            )
+
+        if provider == "mistral6":
+            agent = MistralAgent(
+                api_key=settings.api.mistral_key6.get_secret_value(),
+                model=model,
+                temperature=temperature,
+            )
+
+            return AgentSlot(
+                provider=provider,
+                model=model,
+                agent=agent,
+            )
+
         if provider == "groq":
             agent = GroqAgent(
                 api_key=settings.api.groq_main.get_secret_value(),
+                model=model,
+            )
+
+            return AgentSlot(
+                provider=provider,
+                model=model,
+                agent=agent,
+            )
+
+        if provider == "groq2":
+            agent = GroqAgent(
+                api_key=settings.api.groq_reserve.get_secret_value(),
                 model=model,
             )
 

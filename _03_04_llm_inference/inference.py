@@ -53,6 +53,7 @@ class LLMInferencePool:
         *,
         agents: list[AgentSlot],
         max_attempts_per_request: int | None = None,
+        require_json: bool = True,
     ) -> None:
         if not agents:
             raise ValueError("LLMInferencePool требует хотя бы одного агента.")
@@ -61,35 +62,30 @@ class LLMInferencePool:
         self._cursor = 0
         self._lock = asyncio.Lock()
         self._max_attempts_per_request = max_attempts_per_request or len(agents)
+        self._require_json = require_json
 
     @classmethod
     def from_context(cls, ctx: RunContext) -> "LLMInferencePool":
-        """
-        Собрать LLMInferencePool из RunContext.
-        """
-
         preferred_models = getattr(ctx.preset, "preferred_models", None)
-
         if not preferred_models:
             raise ValueError(
                 "В preset не задан preferred_models. "
                 "Нужно указать хотя бы одну модель."
             )
-
         temperature = getattr(ctx.preset, "temperature", 0.1)
+        require_json = getattr(ctx.preset, "require_json", True)
 
         agents = LLMAgentFactory.build_slots(
             preferred_models=preferred_models,
             temperature=temperature,
         )
-
         logger.info(
-            "LLMInferencePool собран | агентов: %d | модели: %s",
+            "LLMInferencePool собран | агентов: %d | модели: %s | require_json: %s",
             len(agents),
             ", ".join(slot.label for slot in agents),
+            require_json,
         )
-
-        return cls(agents=agents)
+        return cls(agents=agents, require_json=require_json)  # ← пробрасываем
 
     async def __aenter__(self) -> "LLMInferencePool":
         logger.debug("LLMInferencePool открыт.")
@@ -146,7 +142,7 @@ class LLMInferencePool:
         prompt: str,
         system_instruction: str | None,
         role: str = "batch_processing",
-        concurrency: int = 3,
+        concurrency: int = 1
     ) -> list[LLMInferenceResult]:
         """
         Обработать список батчей параллельно.
@@ -201,6 +197,9 @@ class LLMInferencePool:
                     role=role,
                     attempt=attempt_offset + 1,
                 )
+
+                if self._require_json:
+                    response = self._extract_json(response)
 
                 return LLMInferenceResult(
                     batch_index=batch_index,
@@ -305,4 +304,62 @@ class LLMInferencePool:
         return (
             f"{slot.label} failed for role={role}, "
             f"batch={batch_index}: {type(exc).__name__}: {exc}"
+        )
+
+    @staticmethod
+    def _extract_json(text: str) -> str:
+        """
+        Извлечь и валидировать JSON из ответа модели.
+        Поддерживает:
+            - чистый JSON;
+            - ```json ... ``` блоки;
+            - JSON внутри произвольного текста (ищет первый { или [).
+        Возвращает нормализованную JSON-строку.
+        Бросает ValueError, если JSON не найден или невалиден.
+        """
+        import json, re
+
+        stripped = text.strip()
+
+        # Вариант 1: уже чистый JSON
+        try:
+            json.loads(stripped)
+            return stripped
+        except json.JSONDecodeError:
+            pass
+
+        # Вариант 2: обёрнут в ```json ... ``` или просто ``` ... ```
+        fence_match = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", stripped)
+        if fence_match:
+            candidate = fence_match.group(1).strip()
+            try:
+                json.loads(candidate)
+                return candidate
+            except json.JSONDecodeError as exc:
+                raise ValueError(
+                    f"Найден code-блок, но внутри невалидный JSON: {exc}"
+                ) from exc
+
+        # Вариант 3: JSON где-то в тексте — ищем первый { или [
+        for start_char, end_char in [('{', '}'), ('[', ']')]:
+            start = stripped.find(start_char)
+            if start == -1:
+                continue
+            # ищем последний соответствующий закрывающий символ
+            end = stripped.rfind(end_char)
+            if end <= start:
+                continue
+            candidate = stripped[start:end + 1]
+            try:
+                json.loads(candidate)
+                logger.warning(
+                    "JSON извлечён из «грязного» ответа (обрезан мусор до/после)."
+                )
+                return candidate
+            except json.JSONDecodeError:
+                continue
+
+        raise ValueError(
+            f"Ответ модели не содержит валидного JSON. "
+            f"Первые 200 символов: {stripped[:200]!r}"
         )

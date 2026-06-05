@@ -61,7 +61,10 @@ class MistralAgent:
         self.model = model
         self.timeout = timeout
         self.temperature = temperature
-        self._client = Mistral(api_key=api_key)
+        self._client = Mistral(
+            api_key=api_key,
+            timeout_ms=timeout * 1000  # В новых версиях SDK таймаут часто задается в миллисекундах
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -147,7 +150,7 @@ class MistralAgent:
             messages.append({"role": "system", "content": system_instruction})
 
         formatted_data = self.DATA_SEPARATOR.join(data)
-        user_content = f"{prompt}\n\nПОСТЫ ДЛЯ АНАЛИЗА:\n{formatted_data}"
+        user_content = f"{prompt}\n\nДЛЯ АНАЛИЗА:\n{formatted_data}"
         messages.append({"role": "user", "content": user_content})
 
         return messages

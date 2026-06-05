@@ -44,6 +44,11 @@ class APISettings(BaseSettings):
     model_config = _ENV_CONFIG
 
     mistral_key: SecretStr = Field(alias="M1KEY")
+    mistral_key2: SecretStr = Field(alias="M2KEY")
+    mistral_key3: SecretStr = Field(alias="M3KEY")
+    mistral_key4: SecretStr = Field(alias="M4KEY")
+    mistral_key5: SecretStr = Field(alias="M5KEY")
+    #mistral_key6: SecretStr = Field(alias="M6KEY")
     openrouter_key: SecretStr = Field(alias="O1KEY")
     groq_main: SecretStr = Field(alias="G1KEY")
     groq_reserve: Optional[SecretStr] = Field(default=None, alias="G2KEY")
@@ -134,12 +139,9 @@ class AppSettings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     BASE_DIR: Path = BASE_DIR
-    PROMPTS_DIR: Path = BASE_DIR / "prompts"
-    MODULES_DIR: Path = BASE_DIR / "modules"
 
     # Пути (абсолютные)
-    PROMPTS_DIR: Path = BASE_DIR / "prompts"
-    MODULES_DIR: Path = BASE_DIR / "modules"
+    PROMPTS_DIR: Path = BASE_DIR / "_03_02_llm_prompts"
 
     # Вложенные группы — объявляем как Optional, заполняем в model_validator
     api: Optional[APISettings] = None
